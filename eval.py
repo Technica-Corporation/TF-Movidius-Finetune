@@ -24,6 +24,7 @@ tf.app.flags.DEFINE_string('labels_file', None, 'path to labels file')
 tf.app.flags.DEFINE_integer('image_size', 224, 'image size ISxIS')
 tf.app.flags.DEFINE_integer('batch_size', 1, 'batch size')
 tf.app.flags.DEFINE_string('model_name', 'mobilenet_v1', 'name of model architecture defined in nets factory')
+tf.app.flags.DEFINE_string('preprocessing_name', 'lenet', 'name of model preprocessing defined in preprocessing factory')
 tf.app.flags.DEFINE_integer('num_epochs', 1, 'number of epochs to evaluate for')
 FLAGS = tf.app.flags.FLAGS
 
@@ -52,7 +53,7 @@ def main(_):
 		tf.logging.set_verbosity(tf.logging.INFO)
 		#Get the dataset first and load one batch of validation images and labels tensors. Set is_training as False so as to use the evaluation preprocessing
 		dataset = get_split('validation', FLAGS.dataset_dir, FLAGS.num_classes, FLAGS.labels_file, FLAGS.file_pattern, FLAGS.file_pattern_for_counting)
-		images, raw_images, labels = load_batch(dataset, FLAGS.batch_size, FLAGS.image_size, is_training = False)
+		images, raw_images, labels = load_batch(dataset, FLAGS.preprocessing_name, FLAGS.batch_size, FLAGS.image_size, is_training = False)
 		#Create some information about the training steps
 		num_batches_per_epoch = int(dataset.num_samples / FLAGS.batch_size)
 		num_steps_per_epoch = num_batches_per_epoch
