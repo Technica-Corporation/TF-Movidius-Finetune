@@ -1,22 +1,35 @@
+# Copyright 2016 The TensorFlow Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+"""Generic evaluation script that evaluates a model using a TFRECORD path"""
+
 import tensorflow as tf
 from tensorflow.python.platform import tf_logging as logging
 from tensorflow.contrib.framework.python.ops.variables import get_or_create_global_step
-from preprocessing import inception_preprocessing
+from preprocessing import preprocessing_factory
 from nets import nets_factory
 import time
 import os
+import math
 from data import get_split, load_batch
-#from train_flowers import get_split, load_batch
-#import matplotlib.pyplot as plt
-#plt.style.use('ggplot')
 slim = tf.contrib.slim
 
 #================ DATASET INFORMATION ======================
 #State dataset directory where the tfrecord files are located
-tf.app.flags.DEFINE_string('log_dir', '/tmp/tflog/', 'direcotry where to find model files')
-tf.app.flags.DEFINE_string('log_eval', './evallog', 'direcotry where to create log files')
+tf.app.flags.DEFINE_string('checkpoint_path', None, 'direcotry where to find model files')
+tf.app.flags.DEFINE_string('eval_dir', './evallog', 'direcotry where to create log files')
 tf.app.flags.DEFINE_string('dataset_dir', '/home/local/TECHNICALABS/alu/data/falldetect/data/processed/tfrecord/', 'directory to where Validation TFRecord files are')
-tf.app.flags.DEFINE_integer('eval_batch_size', 32, 'batch size on how many examples to evalaue at a time')
 tf.app.flags.DEFINE_integer('num_classes', 2, 'number of classes')
 tf.app.flags.DEFINE_string('file_pattern', 'falldata_%s_*.tfrecord', 'file pattern of TFRecord files')
 tf.app.flags.DEFINE_string('file_pattern_for_counting', 'falldata', 'identify tfrecord files')
@@ -26,82 +39,92 @@ tf.app.flags.DEFINE_integer('batch_size', 1, 'batch size')
 tf.app.flags.DEFINE_string('model_name', 'mobilenet_v1', 'name of model architecture defined in nets factory')
 tf.app.flags.DEFINE_string('preprocessing_name', 'lenet', 'name of model preprocessing defined in preprocessing factory')
 tf.app.flags.DEFINE_integer('num_epochs', 1, 'number of epochs to evaluate for')
+tf.app.flags.DEFINE_float( 'moving_average_decay', None, 'The decay to use for the moving average.' 'If left as None, then moving averages are not used.')
+tf.app.flags.DEFINE_integer('num_preprocessing_threads', 4, 'The number of threads used to create the batches.')
+tf.app.flags.DEFINE_string('master', '', 'The address of the TensorFlow master to use.')
+tf.app.flags.DEFINE_integer('max_num_batches', None, 'Max number of batches to evaluate by default use all.')
 FLAGS = tf.app.flags.FLAGS
 
-
-#Create a evaluation step function
-def eval_step(sess, metrics, global_step, global_step_op, accuracy):
-	'''
-	Simply takes in a session, runs the metrics op and some logging information.
-	'''
-	start_time = time.time()
-	_, global_step_count, accuracy_value = sess.run([metrics, global_step_op, accuracy])
-	time_elapsed = time.time() - start_time
-	#Log some information
-	logging.info('Global Step %s: Streaming Accuracy: %.4f (%.2f sec/step)', global_step_count, accuracy_value, time_elapsed)
-	return accuracy_value
-
-
 def main(_):
-	checkpoint_file = tf.train.latest_checkpoint(FLAGS.log_dir)
-	#Create log_dir for evaluation information
-	if not os.path.exists(FLAGS.log_eval):
-		os.mkdir(FLAGS.log_eval)
+  if not FLAGS.dataset_dir:
+    raise ValueError('You must supply the dataset directory with --dataset_dir')
+  if not FLAGS.checkpoint_path:
+    raise ValueError('You must supply the checkpoint directory with --checkpoint_path')
+  tf.logging.set_verbosity(tf.logging.INFO)
 
-	#Just construct the graph from scratch again
-	with tf.Graph().as_default() as graph:
-		tf.logging.set_verbosity(tf.logging.INFO)
-		#Get the dataset first and load one batch of validation images and labels tensors. Set is_training as False so as to use the evaluation preprocessing
-		dataset = get_split('validation', FLAGS.dataset_dir, FLAGS.num_classes, FLAGS.labels_file, FLAGS.file_pattern, FLAGS.file_pattern_for_counting)
-		images, raw_images, labels = load_batch(dataset, FLAGS.preprocessing_name, FLAGS.batch_size, FLAGS.image_size, is_training = False)
-		#Create some information about the training steps
-		num_batches_per_epoch = int(dataset.num_samples / FLAGS.batch_size)
-		num_steps_per_epoch = num_batches_per_epoch
-		print(num_steps_per_epoch)
-		network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=(dataset.num_classes), is_training=False)
-		logits, end_points = network_fn(images)
-		variables_to_restore = slim.get_variables_to_restore()
-		saver = tf.train.Saver(variables_to_restore)
+  with tf.Graph().as_default():
+    tf_global_step = slim.get_or_create_global_step()
 
-		#FIXME: better way to define restore init fn?
-		def restore_fn(sess):
-			return saver.restore(sess, checkpoint_file)
+    ######################
+    # Select the dataset #
+    ######################
+    dataset = get_split('validation', FLAGS.dataset_dir, FLAGS.num_classes, FLAGS.labels_file, FLAGS.file_pattern, FLAGS.file_pattern_for_counting)
+    provider = slim.dataset_data_provider.DatasetDataProvider(dataset,shuffle=False,common_queue_capacity=2 * FLAGS.batch_size,common_queue_min=FLAGS.batch_size)
+    [image, label] = provider.get(['image', 'label'])
 
-		#Just define the metrics to track without the loss or whatsoever
-		predictions = tf.argmax(end_points['Predictions'], 1)
-		accuracy, accuracy_update = tf.contrib.metrics.streaming_accuracy(predictions, labels)
-		metrics_op = tf.group(accuracy_update)
+    ####################
+    # Select the model #
+    ####################
+    network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=dataset.num_classes, is_training=False)
 
-		#Create the global step and an increment op for monitoring
-		global_step = get_or_create_global_step()
-		global_step_op = tf.assign(global_step, global_step + 1) #no apply_gradient method so manually increasing the global_step
+    #####################################
+    # Select the preprocessing function #
+    #####################################
+    preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
+    image_preprocessing_fn = preprocessing_factory.get_preprocessing(preprocessing_name, is_training=False)
+    eval_image_size = FLAGS.image_size or network_fn.default_image_size
+    image = image_preprocessing_fn(image, eval_image_size, eval_image_size)
+    images, labels = tf.train.batch([image, label],batch_size=FLAGS.batch_size, num_threads=FLAGS.num_preprocessing_threads, capacity=5 * FLAGS.batch_size)
 
-		#Define some scalar quantities to monitor
-		tf.summary.scalar('Validation_Accuracy', accuracy)
-		my_summary_op = tf.summary.merge_all()
+    ####################
+    # Define the model #
+    ####################
+    logits, _ = network_fn(images)
 
-		#Get your supervisor
-		sv = tf.train.Supervisor(logdir = FLAGS.log_eval, summary_op = None, saver = None, init_fn = restore_fn)
+    if FLAGS.moving_average_decay:
+      variable_averages = tf.train.ExponentialMovingAverage(
+          FLAGS.moving_average_decay, tf_global_step)
+      variables_to_restore = variable_averages.variables_to_restore(
+          slim.get_model_variables())
+      variables_to_restore[tf_global_step.op.name] = tf_global_step
+    else:
+      variables_to_restore = slim.get_variables_to_restore()
 
-		#Now we are ready to run in one session
-		with sv.managed_session() as sess:
-			for step in range(num_steps_per_epoch * FLAGS.num_epochs):
-				sess.run(sv.global_step)
-				#print vital information every start of the epoch as always
-				if step % num_batches_per_epoch == 0:
-					logging.info('Epoch: %s/%s', step / num_batches_per_epoch + 1, FLAGS.num_epochs)
-					logging.info('Current Streaming Accuracy: %.4f', sess.run(accuracy))
-				#Compute summaries every 10 steps and continue evaluating
-				if step % 10 == 0:
-					eval_step(sess, metrics = metrics_op, global_step = sv.global_step, global_step_op=global_step_op, accuracy=accuracy)
-					summaries = sess.run(my_summary_op)
-					sv.summary_computed(sess, summaries)
+    predictions = tf.argmax(logits, 1)
+    labels = tf.reshape(tf.squeeze(labels), (FLAGS.batch_size, ))
+    # Define the metrics:
+    names_to_values, names_to_updates = slim.metrics.aggregate_metric_map({'Accuracy': slim.metrics.streaming_accuracy(predictions, labels),
+                                                                            'Recall_5': slim.metrics.streaming_recall_at_k(logits, labels, 5),
+    })
 
-				#Otherwise just run as per normal
-				else:
-					eval_step(sess, global_step_op = global_step_op, metrics = metrics_op, global_step = sv.global_step, accuracy=accuracy)
-			#At the end of all the evaluation, show the final accuracy
-			logging.info('Final Streaming Accuracy: %.4f', sess.run(accuracy))
-			logging.info('Model evaluation has completed! Visit TensorBoard for more information regarding your evaluation.')
+    # Print the summaries to screen.
+    for name, value in names_to_values.items():
+      summary_name = 'eval/%s' % name
+      op = tf.summary.scalar(summary_name, value, collections=[])
+      op = tf.Print(op, [value], summary_name)
+      tf.add_to_collection(tf.GraphKeys.SUMMARIES, op)
+
+    # TODO(sguada) use num_epochs=1
+    if FLAGS.max_num_batches:
+      num_batches = FLAGS.max_num_batches
+    else:
+      # This ensures that we make a single pass over all of the data.
+      num_batches = math.ceil(dataset.num_samples / float(FLAGS.batch_size))
+
+    if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
+      checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
+    else:
+      checkpoint_path = FLAGS.checkpoint_path
+
+    tf.logging.info('Evaluating %s' % checkpoint_path)
+
+    slim.evaluation.evaluate_once(
+        master=FLAGS.master,
+        checkpoint_path=checkpoint_path,
+        logdir=FLAGS.eval_dir,
+        num_evals=num_batches,
+        eval_op=list(names_to_updates.values()),
+        variables_to_restore=variables_to_restore)
+
 if __name__ == '__main__':
-	tf.app.run()
+    tf.app.run()
