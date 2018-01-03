@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-7"""Saves out a GraphDef containing the architecture of the model.
+"""Saves out a GraphDef containing the architecture of the model.
 
 To use it, run something like this, with a model name defined by slim:
 
@@ -59,64 +59,65 @@ from __future__ import print_function
 import tensorflow as tf
 
 from tensorflow.python.platform import gfile
-from datasets import dataset_factory
 from nets import nets_factory
 
 
 slim = tf.contrib.slim
 
 tf.app.flags.DEFINE_string(
-	'model_name', 'inception_v3', 'The name of the architecture to save.')
-
+    'model_name', 'inception_v3', 'The name of the architecture to save.')
 tf.app.flags.DEFINE_boolean(
-	'is_training', False,
-	'Whether to save out a training-focused version of the model.')
-
+    'is_training', False,
+    'Whether to save out a training-focused version of the model.')
 tf.app.flags.DEFINE_integer(
-	'image_size', None,
-	'The image size to use, otherwise use the model default_image_size.')
-
+    'image_size', None,
+    'The image size to use, otherwise use the model default_image_size.')
 tf.app.flags.DEFINE_integer(
-	'batch_size', None,
-	'Batch size for the exported model. Defaulted to "None" so batch size can '
-	'be specified at model runtime.')
-
+    'batch_size', None,
+    'Batch size for the exported model. Defaulted to "None" so batch size can '
+    'be specified at model runtime.')
 tf.app.flags.DEFINE_integer(
-	'labels_offset', 0,
-	'An offset for the labels in the dataset. This flag is primarily used to '
-	'evaluate the VGG and ResNet architectures which do not use a background '
-	'class for the ImageNet dataset.')
-
+    'labels_offset', 0,
+    'An offset for the labels in the dataset. This flag is primarily used to '
+    'evaluate the VGG and ResNet architectures which do not use a background '
+    'class for the ImageNet dataset.')
 tf.app.flags.DEFINE_string(
-	'output_file', '', 'Where to save the resulting file to.')
-
-tf.app.flags.DEFINE_string(
-	'dataset_dir', '', 'Directory to save intermediate dataset files to')
-
+    'output_file', '', 'Where to save the resulting file to.')
 tf.app.flags.DEFINE_integer(
-	'num_classes', 2, 'Number of expected classes for output tensor')
+    'num_classes', 2, 'Number of expected classes for output tensor')
 tf.app.flags.DEFINE_string(
-	'input_layer_name', 'input', 'Name of the input layer Placeholder tensor')
+    'input_layer_name', 'input', 'Name of the input layer Placeholder tensor')
 tf.app.flags.DEFINE_string(
-	'output_layer_name', 'final_result', 'Name of the output layer softmax classification layer')
-
+    'output_layer_name', 'final_result', 'Name of the output layer softmax classification layer')
+tf.app.flags.DEFINE_string(
+    'ckpt_path', None, 'Name of the output layer softmax classification layer')
+tf.app.flags.DEFINE_string(
+    'output_ckpt_path', 'output/checkpoint', 'Name of output file path for checkpoint fused inference graph')
 FLAGS = tf.app.flags.FLAGS
 
 
 def main(_):
   if not FLAGS.output_file:
-	raise ValueError('You must supply the path to save to with --output_file')
+    raise ValueError('You must supply the path to save to with --output_file')
   tf.logging.set_verbosity(tf.logging.INFO)
   with tf.Graph().as_default() as graph:
-	network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=(FLAGS.num_classes - FLAGS.labels_offset), is_training=FLAGS.is_training)
-	image_size = FLAGS.image_size or network_fn.default_image_size
-	placeholder = tf.placeholder(name=FLAGS.input_layer_name, dtype=tf.float32, shape=[FLAGS.batch_size, image_size, image_size, 3])
-	logits, _ = network_fn(placeholder)
-	final_tensor = tf.nn.softmax(logits, name=FLAGS.output_layer_name, dtype=tf.float32)
-	graph_def = graph.as_graph_def()
-	with gfile.GFile(FLAGS.output_file, 'wb') as f:
-	  f.write(graph_def.SerializeToString())
-
+    network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=(FLAGS.num_classes - FLAGS.labels_offset), is_training=FLAGS.is_training)
+    image_size = FLAGS.image_size or network_fn.default_image_size
+    placeholder = tf.placeholder(name=FLAGS.input_layer_name, shape=[FLAGS.batch_size, image_size, image_size, 3])
+    logits, endpoints = network_fn(placeholder)
+    final_tensor = tf.identity(endpoints['Predictions'], name=FLAGS.output_layer_name)
+    #final_tensor = tf.nn.softmax(logits, name=FLAGS.output_layer_name, dtype=tf.float32)
+    #if provided a checkpoint, export a folder checkpoint with inference graph as meta file, else just export a meta file only
+    if FLAGS.ckpt_path:
+        init_fn = slim.assign_from_checkpoint_fn(FLAGS.ckpt_path, slim.get_model_variables('MobilenetV1'))
+        with tf.Session() as sess:
+            init_fn(sess)
+            saver = tf.train.Saver(tf.global_variables())
+            saver.save(sess, FLAGS.output_ckpt_path)
+    else:
+        graph_def = graph.as_graph_def()
+        with gfile.GFile(FLAGS.output_file, 'wb') as f:
+        f.write(graph_def.SerializeToString())
 
 if __name__ == '__main__':
   tf.app.run()
