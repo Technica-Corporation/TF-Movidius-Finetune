@@ -36,7 +36,7 @@ def get_split(split_name, dataset_dir, num_classes, labels_file, file_pattern, f
     for tfrecord_file in tfrecords_to_count:
         for record in tf.python_io.tf_record_iterator(tfrecord_file):
             num_samples += 1
-    print(num_samples)
+    logging.info('Number of Samples in Data: {}'.format(num_samples))
     #Create a reader, which must be a TFRecord reader in this case
     reader = tf.TFRecordReader
 
