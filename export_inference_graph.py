@@ -92,18 +92,21 @@ tf.app.flags.DEFINE_string(
 tf.app.flags.DEFINE_string(
     'ckpt_path', None, 'Name of the output layer softmax classification layer')
 tf.app.flags.DEFINE_string(
-    'output_ckpt_path', 'output/checkpoint', 'Name of output file path for checkpoint fused inference graph')
+    'output_ckpt_path', None, 'Name of output file path for checkpoint fused inference graph')
 FLAGS = tf.app.flags.FLAGS
 
 
 def main(_):
-  if not FLAGS.output_file:
+  if not FLAGS.output_file and not FLAGS.output_ckpt_path and not FLAGS.ckpt_path:
     raise ValueError('You must supply the path to save to with --output_file')
+  if not FLAGS.output_ckpt_path or not FLAGS.ckpt_path:
+    raise ValueError('Missing ckpt path [{}] and/or output_ckpt_path [{}]'.format(FLAGS.ckpt_path, FLAGS.output_ckpt_path))
   tf.logging.set_verbosity(tf.logging.INFO)
   with tf.Graph().as_default() as graph:
     network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=(FLAGS.num_classes - FLAGS.labels_offset), is_training=FLAGS.is_training)
     image_size = FLAGS.image_size or network_fn.default_image_size
-    placeholder = tf.placeholder(name=FLAGS.input_layer_name, shape=[FLAGS.batch_size, image_size, image_size, 3])
+    placeholder = tf.placeholder("float", name=FLAGS.input_layer_name, shape=[FLAGS.batch_size, image_size, image_size, 3])
+    #with slim.arg_scope(mobilenet_v1.mobilenet_v1_arg_scope(is_training = False)): #MAKES NO DIFFERENCE SCOPING
     logits, endpoints = network_fn(placeholder)
     final_tensor = tf.identity(endpoints['Predictions'], name=FLAGS.output_layer_name)
     #final_tensor = tf.nn.softmax(logits, name=FLAGS.output_layer_name, dtype=tf.float32)
@@ -117,7 +120,7 @@ def main(_):
     else:
         graph_def = graph.as_graph_def()
         with gfile.GFile(FLAGS.output_file, 'wb') as f:
-        f.write(graph_def.SerializeToString())
+            f.write(graph_def.SerializeToString())
 
 if __name__ == '__main__':
   tf.app.run()
