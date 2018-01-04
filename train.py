@@ -35,6 +35,7 @@ tf.app.flags.DEFINE_float('weight_decay', 0.00004, 'The weight decay on the mode
 tf.app.flags.DEFINE_integer('log_every_n_steps', 100, 'The frequency with which logs are print.')
 tf.app.flags.DEFINE_boolean('ignore_missing_vars', False, 'When restoring a checkpoint would ignore missing variables.')
 tf.app.flags.DEFINE_float('class_weight', None, 'Class weight of the positive weight (binary only)')
+tf.app.flags.DEFINE_boolean('save_every_epoch', False, 'Whether to save ckpt file every epoch')
 FLAGS = tf.app.flags.FLAGS
 
 
@@ -54,15 +55,16 @@ def _get_init_fn():
 	# Warn the user if a checkpoint exists in the train_dir. Then we'll be
 	# ignoring the checkpoint anyway.
 	if tf.train.latest_checkpoint(FLAGS.log_dir):
-		tf.logging.info(
-				'Ignoring --checkpoint_path because a checkpoint already exists in %s'
-				% FLAGS.train_dir)
-		return None
-
+		tf.logging.info('Ignoring --checkpoint_path because a checkpoint already exists in {}'.format(FLAGS.log_dir))
+		tf.logging.warning('Warning --checkpoint_exclude_scopes used when restoring from fine-tuned model {}'.format(FLAGS.checkpoint_exclude_scopes))
+		checkpoint_path = tf.train.latest_checkpoint(FLAGS.log_dir)
+	elif tf.train.checkpoint_exists(FLAGS.checkpoint_path):
+		checkpoint_path = FLAGS.checkpoint_path
+	else:
+		raise ValueError('No valid checkpoint found in --log_dir or --checkpoint_path: {}, {}'.format(FLAGS.log_dir, FLAGS.checkpoint_path))
 	exclusions = []
 	if FLAGS.checkpoint_exclude_scopes:
-		exclusions = [scope.strip()
-									for scope in FLAGS.checkpoint_exclude_scopes.split(',')]
+		exclusions = [scope.strip() for scope in FLAGS.checkpoint_exclude_scopes.split(',')]
 
 	# TODO(sguada) variables.filter_variables()
 	variables_to_restore = []
@@ -75,12 +77,7 @@ def _get_init_fn():
 		if not excluded:
 			variables_to_restore.append(var)
 
-	if tf.gfile.IsDirectory(FLAGS.checkpoint_path):
-		checkpoint_path = tf.train.latest_checkpoint(FLAGS.checkpoint_path)
-	else:
-		checkpoint_path = FLAGS.checkpoint_path
-
-	tf.logging.info('Fine-tuning from %s' % checkpoint_path)
+	tf.logging.info('Fine-tuning from {}'.format(checkpoint_path))
 
 	return slim.assign_from_checkpoint_fn(
 			checkpoint_path,
@@ -185,7 +182,9 @@ def main(_):
 					logging.info('Epoch %s/%s', step/num_batches_per_epoch + 1, FLAGS.num_epochs)
 					learning_rate_value, accuracy_value = sess.run([lr, accuracy])
 					logging.info('Current Learning Rate: %s', learning_rate_value)
-					logging.info('Accuracy: %s', accuracy_value)
+					logging.info('Current Batch Accuracy: %s', accuracy_value)
+					if FLAGS.save_every_epoch:
+						sv.saver.save(sess, sv.save_path, global_step = sv.global_step)
 				if step % FLAGS.log_every_n_steps == 0:
 					loss, _ = _train_step(sess, train_op, sv.global_step, log=True)
 					summaries = sess.run(my_summary_op)

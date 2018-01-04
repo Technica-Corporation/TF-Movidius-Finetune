@@ -4,7 +4,7 @@
 
 Workspace to leverage own data and use it to fine-tune a model defined in TF-Slim from a pre-existing model checkpoint. Provides necessary functions to then export the model to a Movidius Compatible format.
 
-We've encounted that there are several issues with porting Tensorflow models to the Movidius API, most of which can be alleviated by exporting a inference metagraph file with a batch_size of 1 in the Placeholder input. Previous issues using the metagraph file exporting from the training script due to undefined shape of the Placeholder (e.g. shape of [?, 224, 224, 3]) or a non-one batch size (e.g. [8, 224, 224, 3]). Exporting a seperate metagraph then using the freeze checkpoint tool to freeze the graph to consts allows to export a compatible version of the model that succesfully exportings via the Movidius Compile Tool. We've succesfully exported these graphs, which we've had previous problems doing for other models we've trained using Tensorflow for [poets 2 code lab](https://github.com/googlecodelabs/tensorflow-for-poets-2). In general, we've found that the key is to define a new model structure without any training/evaluation operations with a new default Placeholder with batch-size 1 and a output_layer that interfaces with the Predictions end_point used often in the Slim API.
+We've encounted that there are several issues with porting Tensorflow models to the Movidius API, most of which can be alleviated by exporting a inference metagraph file with a batch_size of 1 in the Placeholder input. Previous issues using the metagraph file exporting from the training script due to undefined shape of the Placeholder (e.g. shape of [?, 224, 224, 3]) or a non-one batch size (e.g. [8, 224, 224, 3]). Exporting a seperate metagraph then using the freeze checkpoint tool to freeze the graph to consts allows to export a compatible version of the model that succesfully exportings via the Movidius Compile Tool. We've succesfully exported these graphs, which we've had previous problems doing for other models we've trained using Tensorflow for [poets 2 code lab](https://github.com/googlecodelabs/tensorflow-for-poets-2). In general, we've found that the key is to define a new inference GraphDef structure without any training/evaluation operations with a new default Placeholder with batch-size 1 and a output_layer that interfaces with the Predictions end_point used often in the Slim API.
 
 We've tried doing a similar thing in vanilla Tensorflow, but have had issues so far.
 
@@ -62,7 +62,7 @@ python export_inference_graph.py --model_name inception_v3 --image_size 224 --ba
 ### Solutions Tried w/o Success
 Here's a few solutions we've tried out without much success
 + Using the retrain script in the Tensorflow for poets tutorial to produce a frozen model and convert to movidius
-+ Created a simple 1-layer CNN defined in Native Tensorflow and converted to Movidius, saw a drop from 95% accuracy to 80% accuracy
++ Created a simple 1-layer CNN defined in Native Tensorflow trained on MNIST and converted to Movidius, saw a drop from 95% accuracy to 80% accuracy on the test set
 
 
 ## Credit

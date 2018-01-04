@@ -95,7 +95,12 @@ tf.app.flags.DEFINE_string(
     'output_ckpt_path', None, 'Name of output file path for checkpoint fused inference graph')
 FLAGS = tf.app.flags.FLAGS
 
-
+'''
+Provide two different ways to export graph
+1. Export graph structure only. Give FLAGS without ckpt_path/output_ckpt path. Exports a graphdef to use with the freeze graph tool to create a pb file
+2. Export new checkpooint file. Give FLAGS with ckpt_path/output_ckpt path. Exports a new checkpoint file with an updated inference GraphDef
+Tested both methods and have resulted in, in our tests, the same graph when converted via the Movidius Toolkit
+'''
 def main(_):
   if not FLAGS.output_file and not FLAGS.output_ckpt_path and not FLAGS.ckpt_path:
     raise ValueError('You must supply the path to save to with --output_file')
@@ -106,11 +111,8 @@ def main(_):
     network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=(FLAGS.num_classes - FLAGS.labels_offset), is_training=FLAGS.is_training)
     image_size = FLAGS.image_size or network_fn.default_image_size
     placeholder = tf.placeholder("float", name=FLAGS.input_layer_name, shape=[FLAGS.batch_size, image_size, image_size, 3])
-    #with slim.arg_scope(mobilenet_v1.mobilenet_v1_arg_scope(is_training = False)): #MAKES NO DIFFERENCE SCOPING
     logits, endpoints = network_fn(placeholder)
     final_tensor = tf.identity(endpoints['Predictions'], name=FLAGS.output_layer_name)
-    #final_tensor = tf.nn.softmax(logits, name=FLAGS.output_layer_name, dtype=tf.float32)
-    #if provided a checkpoint, export a folder checkpoint with inference graph as meta file, else just export a meta file only
     if FLAGS.ckpt_path:
         init_fn = slim.assign_from_checkpoint_fn(FLAGS.ckpt_path, slim.get_model_variables('MobilenetV1'))
         with tf.Session() as sess:
