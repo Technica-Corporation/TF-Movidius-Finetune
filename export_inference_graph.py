@@ -102,17 +102,15 @@ Provide two different ways to export graph
 Tested both methods and have resulted in, in our tests, the same graph when converted via the Movidius Toolkit
 '''
 def main(_):
-  if not FLAGS.output_file and not FLAGS.output_ckpt_path and not FLAGS.ckpt_path:
-    raise ValueError('You must supply the path to save to with --output_file')
-  if not FLAGS.output_ckpt_path or not FLAGS.ckpt_path:
-    raise ValueError('Missing ckpt path [{}] and/or output_ckpt_path [{}]'.format(FLAGS.ckpt_path, FLAGS.output_ckpt_path))
+  if not (FLAGS.output_file or (FLAGS.output_ckpt_path and FLAGS.ckpt_path)):
+    raise ValueError('Missing output file path OR missing ckpt path [{}] and output_ckpt_path [{}]'.format(FLAGS.ckpt_path, FLAGS.output_ckpt_path))
   tf.logging.set_verbosity(tf.logging.INFO)
   with tf.Graph().as_default() as graph:
     network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=(FLAGS.num_classes - FLAGS.labels_offset), is_training=FLAGS.is_training)
     image_size = FLAGS.image_size or network_fn.default_image_size
     placeholder = tf.placeholder("float", name=FLAGS.input_layer_name, shape=[FLAGS.batch_size, image_size, image_size, 3])
     logits, endpoints = network_fn(placeholder)
-    final_tensor = tf.nn.softmax(logits)
+    final_tensor = tf.nn.softmax(logits, name=FLAGS.output_layer_name)
     #final_tensor = tf.identity(endpoints['Predictions'], name=FLAGS.output_layer_name)
     if FLAGS.ckpt_path:
         init_fn = slim.assign_from_checkpoint_fn(FLAGS.ckpt_path, slim.get_variables_to_restore())

@@ -49,6 +49,13 @@ python eval.py --checkpoint_path ../tf-train-slim/trainlogs/1.2/run_4/ --num_cla
 ```
 python export_inference_graph.py --model_name inception_v3 --image_size 224 --batch_size 1 --ckpt_path ./trainlogs//model.ckpt-1560 --output_ckpt_path ./output/tf-mvnc
 ```
+```
+python export_inference_graph.py --model_name inception_v3 --is_training True --batch_size 1 --num_classes 2 --output_file ./trainlogs/inference_graph.def --image_size 299
+```
+```
+python freeze_graph.py --input_node_names input --output_node_names final_result --input_binary True --input_graph inference_graph.def --input_checkpoint test.ckpt --output_graph frozen-inf.pb
+```
+
 
 ## Issues
 + We've observed a significant accuracy dropoff on our internal test sets when converting from Tensorflow to the Movidius API (up to 19% drop on a binary classification problem on 3 color channel images). As of now, we're unsure if it's an issue with running in single precision, something incorrect with the conversion process, the model architecture we're using (MobileNet 1.0 224).
