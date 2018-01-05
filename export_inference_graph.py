@@ -114,7 +114,7 @@ def main(_):
     logits, endpoints = network_fn(placeholder)
     final_tensor = tf.identity(endpoints['Predictions'], name=FLAGS.output_layer_name)
     if FLAGS.ckpt_path:
-        init_fn = slim.assign_from_checkpoint_fn(FLAGS.ckpt_path, slim.get_model_variables('MobilenetV1'))
+        init_fn = slim.assign_from_checkpoint_fn(FLAGS.ckpt_path, slim.get_variables_to_restore())
         with tf.Session() as sess:
             init_fn(sess)
             saver = tf.train.Saver(tf.global_variables())
