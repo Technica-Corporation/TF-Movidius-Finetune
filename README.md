@@ -28,8 +28,8 @@ Current workflow looks like this:
 3. Use eval.py to evaluate on validation split of data
 4. Iterate on steps 2-3 until desired loss/accuracy is achieved
 5. Export inference graph of desired model architecture defined in nets folder
-	a. We've used two different constructs available here, one is getting the inference graph then exporting it as a meta file along with the checkpoint using slim.restore_from_ckpt. The resulting meta file is sufficient to use with the graph tool
-	b. The other way we've tested is exporting just the empty inference graph only using import_graph_def then freezing it using the tool
+    a. We've used two different constructs available here, one is getting the inference graph then exporting it as a meta file along with the checkpoint using slim.restore_from_ckpt. The resulting meta file is sufficient to use with the graph tool
+    b. The other way we've tested is exporting just the empty inference graph only using import_graph_def then freezing it using the tool
 6. (If 5b) Freeze graph using inference graph metadef and desired training checkpoint
 7. (If 5b) Retest frozen graph on subsample of images, make sure model still persists
 8. Use either meta file or frozen graph and feed it in to [mvNCCompile](https://github.com/movidius/ncsdk/blob/master/docs/tools/compile.md) tool provided with Movidius to convert Tensorflow graph
@@ -57,7 +57,7 @@ python export_inference_graph.py --model_name inception_v3 --image_size 224 --ba
 + We've validated that the graph structure is the same as some of the Mobilenet examples provided in the NCAppZoo using the [MVNCProfile](https://github.com/movidius/ncsdk/blob/master/docs/tools/profile.md) tool
 + Our suspicion is that it's something with the weights that the parser isn't translating 1-to-1.
 + We've also looked into ensuring the preprocessing is similar from train/test time, so we've only done simple scaling [0, 1] and mean subtraction.
-
++ Export inference graph not working using model checkpoint and InceptionV3 architecture (works for MobileNet)
 
 ### Solutions Tried w/o Success
 Here's a few solutions we've tried out without much success

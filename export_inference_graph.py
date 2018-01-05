@@ -112,7 +112,8 @@ def main(_):
     image_size = FLAGS.image_size or network_fn.default_image_size
     placeholder = tf.placeholder("float", name=FLAGS.input_layer_name, shape=[FLAGS.batch_size, image_size, image_size, 3])
     logits, endpoints = network_fn(placeholder)
-    final_tensor = tf.identity(endpoints['Predictions'], name=FLAGS.output_layer_name)
+    final_tensor = tf.nn.softmax(logits)
+    #final_tensor = tf.identity(endpoints['Predictions'], name=FLAGS.output_layer_name)
     if FLAGS.ckpt_path:
         init_fn = slim.assign_from_checkpoint_fn(FLAGS.ckpt_path, slim.get_variables_to_restore())
         with tf.Session() as sess:
