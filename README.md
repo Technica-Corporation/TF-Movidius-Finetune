@@ -2,11 +2,13 @@
 
 # Introduction
 
-Workspace to leverage own data and use it to fine-tune a model defined in TF-Slim from a pre-existing model checkpoint. Provides necessary functions to then export the model to a Movidius Compatible format.
 
-We've encounted that there are several issues with porting Tensorflow models to the Movidius API, most of which can be alleviated by exporting a inference metagraph file with a batch_size of 1 in the Placeholder input. Previous issues using the metagraph file exporting from the training script due to undefined shape of the Placeholder (e.g. shape of [?, 224, 224, 3]) or a non-one batch size (e.g. [8, 224, 224, 3]). Exporting a seperate metagraph then using the freeze checkpoint tool to freeze the graph to consts allows to export a compatible version of the model that succesfully exportings via the Movidius Compile Tool. We've succesfully exported these graphs, which we've had previous problems doing for other models we've trained using Tensorflow for [poets 2 code lab](https://github.com/googlecodelabs/tensorflow-for-poets-2). In general, we've found that the key is to define a new inference GraphDef structure without any training/evaluation operations with a new default Placeholder with batch-size 1 and a output_layer that interfaces with the Predictions end_point used often in the Slim API.
+We've encountered several issues with porting Tensorflow models to the Movidius API, most of which can be alleviated by exporting a inference metagraph file with a batch_size of 1 in the Placeholder input. Previous issues using the metagraph file exporting from the training script due to undefined shape of the Placeholder (e.g. shape of [?, 224, 224, 3]) or a non-one batch size (e.g. [8, 224, 224, 3]). Exporting a seperate metagraph then using the freeze checkpoint tool to freeze the graph to consts allows to export a compatible version of the model that succesfully exportings via the Movidius Compile Tool. We've succesfully exported these graphs, which we've had previous problems doing for other models we've trained using Tensorflow for [poets 2 code lab](https://github.com/googlecodelabs/tensorflow-for-poets-2). In general, we've found that the key is to define a new inference GraphDef structure without any training/evaluation operations with a new default Placeholder with batch-size 1 and a output_layer that interfaces with the Predictions end_point used often in the Slim API.
 
-We've tried doing a similar thing in vanilla Tensorflow, but have had issues so far.
+We've tried doing a similar thing in vanilla Tensorflow, but have had issues so far when using the MVNC tool to compile the graphs defined in vanilla Tensorflow. We have reason to believe that the TF Slim API is the optimal way to define models to be compatible with Movidius. 
+
+## Updates
++ (1/5/18) Added transfer learning to scripts as opposed to fine-tuning. User can define to select the last Logits/AuxLogits layer to train instead of the entire model using the --trainable_variables argument in train.py. (Note: this hasn't yielded any different results when porting to MVNC)
 
 # Requirements
 + Dependencies listed in requirements.txt
@@ -28,8 +30,8 @@ Current workflow looks like this:
 3. Use eval.py to evaluate on validation split of data
 4. Iterate on steps 2-3 until desired loss/accuracy is achieved
 5. Export inference graph of desired model architecture defined in nets folder
-    a. We've used two different constructs available here, one is getting the inference graph then exporting it as a meta file along with the checkpoint using slim.restore_from_ckpt. The resulting meta file is sufficient to use with the graph tool
-    b. The other way we've tested is exporting just the empty inference graph only using import_graph_def then freezing it using the tool
+	a. We've used two different constructs available here, one is getting the inference graph then exporting it as a meta file along with the checkpoint using slim.restore_from_ckpt. The resulting meta file is sufficient to use with the graph tool
+	b. The other way we've tested is exporting just the empty inference graph only using import_graph_def then freezing it using the tool
 6. (If 5b) Freeze graph using inference graph metadef and desired training checkpoint
 7. (If 5b) Retest frozen graph on subsample of images, make sure model still persists
 8. Use either meta file or frozen graph and feed it in to [mvNCCompile](https://github.com/movidius/ncsdk/blob/master/docs/tools/compile.md) tool provided with Movidius to convert Tensorflow graph
