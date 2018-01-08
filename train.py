@@ -36,6 +36,7 @@ tf.app.flags.DEFINE_integer('log_every_n_steps', 100, 'The frequency with which 
 tf.app.flags.DEFINE_boolean('ignore_missing_vars', False, 'When restoring a checkpoint would ignore missing variables.')
 tf.app.flags.DEFINE_float('class_weight', None, 'Class weight of the positive weight (binary only)')
 tf.app.flags.DEFINE_boolean('save_every_epoch', False, 'Whether to save ckpt file every epoch')
+tf.app.flags.DEFINE_string('trainable_scopes', None, 'Comma-separated list of scopes to filter the set of variables to train.' 'By default, None would train all the variables.')
 FLAGS = tf.app.flags.FLAGS
 
 def _get_variables_to_train():
@@ -48,11 +49,12 @@ def _get_variables_to_train():
         return tf.trainable_variables()
     else:
         scopes = [scope.strip() for scope in FLAGS.trainable_scopes.split(',')]
-
     variables_to_train = []
     for scope in scopes:
         variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope)
         variables_to_train.extend(variables)
+    if len(variables_to_train) == 0:
+    	return None
     return variables_to_train
 
 #Defines functions to load checkpoint
@@ -161,7 +163,7 @@ def main(_):
         ######################
         network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=(dataset.num_classes), weight_decay=FLAGS.weight_decay, is_training=True)
         logits, end_points = network_fn(images)
-        final_tensor = tf.identity(end_points['Predictions'], name=final_result)
+        final_tensor = tf.identity(end_points['Predictions'], name="final_result")
         tf.summary.histogram('activations', final_tensor)
         #Perform one-hot-encoding of the labels (Try one-hot-encoding within the load_batch function!) ?
         one_hot_labels = slim.one_hot_encoding(labels, dataset.num_classes)
@@ -183,9 +185,8 @@ def main(_):
                                         staircase = True)
         #TODO: add options to decide optimizer
         optimizer = tf.train.AdamOptimizer(learning_rate = lr)
-        #variables_to_train = _get_variables_to_train() TODO: Experimental
-        train_op = slim.learning.create_train_op(total_loss=total_loss, optimizer=optimizer) #variables_to_train=variables_to_train
-
+        variables_to_train = _get_variables_to_train()
+        train_op = slim.learning.create_train_op(total_loss, optimizer, variables_to_train=variables_to_train)
         accuracy, prediction = _add_evaluation_step(final_tensor, one_hot_labels)
         tf.summary.scalar('losses/Total_Loss', total_loss)
         tf.summary.scalar('learning_rate', lr)
