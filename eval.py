@@ -34,7 +34,7 @@ tf.app.flags.DEFINE_integer('num_classes', 2, 'number of classes')
 tf.app.flags.DEFINE_string('file_pattern', 'falldata_%s_*.tfrecord', 'file pattern of TFRecord files')
 tf.app.flags.DEFINE_string('file_pattern_for_counting', 'falldata', 'identify tfrecord files')
 tf.app.flags.DEFINE_string('labels_file', None, 'path to labels file')
-tf.app.flags.DEFINE_integer('image_size', 224, 'image size ISxIS')
+tf.app.flags.DEFINE_integer('image_size', None, 'image size ISxIS')
 tf.app.flags.DEFINE_integer('batch_size', 1, 'batch size')
 tf.app.flags.DEFINE_string('model_name', 'mobilenet_v1', 'name of model architecture defined in nets factory')
 tf.app.flags.DEFINE_string('preprocessing_name', 'lenet', 'name of model preprocessing defined in preprocessing factory')
@@ -65,7 +65,7 @@ def main(_):
     ####################
     # Select the model #
     ####################
-    network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=dataset.num_classes, is_training=False)
+    network_fn = nets_factory.get_network_fn(FLAGS.model_name, num_classes=FLAGS.num_classes, is_training=False)
 
     #####################################
     # Select the preprocessing function #
@@ -80,16 +80,7 @@ def main(_):
     # Define the model #
     ####################
     logits, _ = network_fn(images)
-
-    if FLAGS.moving_average_decay:
-      variable_averages = tf.train.ExponentialMovingAverage(
-          FLAGS.moving_average_decay, tf_global_step)
-      variables_to_restore = variable_averages.variables_to_restore(
-          slim.get_model_variables())
-      variables_to_restore[tf_global_step.op.name] = tf_global_step
-    else:
-      variables_to_restore = slim.get_variables_to_restore()
-
+    variables_to_restore = slim.get_variables_to_restore()
     predictions = tf.argmax(logits, 1)
     labels = tf.reshape(tf.squeeze(labels), (FLAGS.batch_size, ))
     # Define the metrics:
