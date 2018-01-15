@@ -6,11 +6,12 @@ The purpose of this project is to serve as a workspace for developers interested
 
 We've encountered several issues with converting Tensorflow models to be imported using the Movidius API. Most of these issues can be alleviated by exporting an inference metagraph file with a batch_size of 1 in the Placeholder input. A remaining issue is using the metagraph file exported from the training script results in an undefined shape of the Placeholder (e.g. shape of [?, 224, 224, 3]) or a non-one batch size (e.g. [8, 224, 224, 3]) which is not compatible with the MVNCSDK Compile Tool. We found that exporting a separate metagraph using the freeze checkpoint tool to freeze the graph to constants allows us to export a compatible version of the model that successfully compiled via the Movidius Compile Tool. In general, we've found that the key is to define a new inference GraphDef structure without any training/evaluation operations, a new default Placeholder with batch-size 1, and an output_layer that interfaces with the Predictions end_point used often in the Slim API. We've tried doing a similar thing with the vanilla Tensorflow API, but have had issues so far when using the MVNC tool to compile the graphs defined in vanilla Tensorflow, the process errors out. We have reason to believe that the TF Slim API is the optimal way to define models to be compatible with Movidius.
 
-When we have successfully converted Tensorflow to the Movidius, we’ve observed a significant accuracy dropoff running the converted model on the Movidius Neural Compute Stick. Our internal test sets have shown up to 19% drop on a binary classification problem on 3 color channel images. This is described in the Issues section below.
+~~When we have successfully converted Tensorflow to the Movidius, we’ve observed a significant accuracy dropoff running the converted model on the Movidius Neural Compute Stick. Our internal test sets have shown up to 19% drop on a binary classification problem on 3 color channel images. This is described in the Issues section below.~~
 
 
 ## Updates
 + (1/5/18) Added transfer learning to scripts as opposed to fine-tuning. User can define to select the last Logits/AuxLogits layer to train instead of the entire model using the --trainable_variables argument in train.py. (Note: this hasn't yielded any different results when porting to MVNC)
++ (1/15/18) The latest [NCSDK release (1.12.00.01)](https://github.com/movidius/ncsdk/releases/tag/v1.12.00.01) has bug fixes. We've tested the new NCSDK + tools and the issues we've seen with the MobileNet architecture are resolved. See their release bug fixes for more details. 
 
 # Requirements
 + Dependencies listed in requirements.txt
@@ -62,13 +63,13 @@ python freeze_graph.py --input_node_names input --output_node_names final_result
 
 
 ## Issues
-1. We've observed a significant accuracy dropoff on our internal test sets when converting from Tensorflow to the Movidius API (up to 19% drop on a binary classification problem on 3 color channel images). As of now, we're unsure if it's an issue with running in single precision, or something incorrect with the conversion process, or the model architecture we're using (MobileNet 1.0 224).
+~~1. We've observed a significant accuracy dropoff on our internal test sets when converting from Tensorflow to the Movidius API (up to 19% drop on a binary classification problem on 3 color channel images). As of now, we're unsure if it's an issue with running in single precision, or something incorrect with the conversion process, or the model architecture we're using (MobileNet 1.0 224).
 	+ We've used the built in inspect_checkpoint function in Tensorflow to verify that the checkpoint files are the same as the ones originally downloaded / used in the ncappzoo.
 	+ In all our tests whether the graph has been loaded from a checkpoint (meta, data, index files) or frozen for inference (protobuf format), accuracy is stable on our validation set.
 	+ We've validated that the graph structure is the same as some of the Mobilenet examples provided in the NCAppZoo using the [MVNCProfile](https://github.com/movidius/ncsdk/blob/master/docs/tools/profile.md) tool
 	+ Our suspicion is it's something with the weights that the parser isn't translating 1-to-1.
-	+ We've also looked into ensuring the preprocessing is similar from train/test time, so we've only done simple scaling [0, 1] and mean subtraction.
-2. Export inference graph not working using model checkpoint and InceptionV3 architecture (works for MobileNet)
+	+ We've also looked into ensuring the preprocessing is similar from train/test time, so we've only done simple scaling [0, 1] and mean subtraction.~~
+~~2. Export inference graph not working using model checkpoint and InceptionV3 architecture (works for MobileNet)~~
 
 ### Solutions Tried w/o Success
 Here's a few solutions we've tried out without much success
