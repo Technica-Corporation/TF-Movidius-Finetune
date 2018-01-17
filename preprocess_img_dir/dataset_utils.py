@@ -169,11 +169,15 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir, tfr
             sys.stdout.flush()
             # Read byte string
             image_data = tf.gfile.FastGFile(filenames[i], 'rb').read()
-            height, width = image_reader.read_image_dims(sess, image_data)
-            class_name = os.path.basename(os.path.dirname(filenames[i]))
-            class_id = class_names_to_ids[class_name]
-            example = image_to_tfexample(image_data, 'jpg'.encode(), height, width, class_id)
-            tfrecord_writer.write(example.SerializeToString())
+            try:
+              height, width = image_reader.read_image_dims(sess, image_data)
+              class_name = os.path.basename(os.path.dirname(filenames[i]))
+              class_id = class_names_to_ids[class_name]
+              example = image_to_tfexample(image_data, 'jpg'.encode(), height, width, class_id)
+              tfrecord_writer.write(example.SerializeToString())
+            except Exception as inst:
+              print('Error with {}, {}'.format(filenames[i]))
+              continue
   sys.stdout.write('\n')
   sys.stdout.flush()
 
