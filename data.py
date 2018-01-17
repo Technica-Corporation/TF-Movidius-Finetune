@@ -73,7 +73,7 @@ def get_split(split_name, dataset_dir, num_classes, labels_file, file_pattern, f
 
     return dataset
 
-def load_batch(dataset, preprocessing_name, batch_size, img_size, is_training=True):
+def load_batch(dataset, preprocessing_name, batch_size, img_size, num_readers, is_training=True):
     '''
     Loads a batch for training.
 
@@ -90,30 +90,17 @@ def load_batch(dataset, preprocessing_name, batch_size, img_size, is_training=Tr
 
     '''
     #First create the data_provider object
-    data_provider = slim.dataset_data_provider.DatasetDataProvider(
-        dataset,
-        common_queue_capacity = 24 + 3 * batch_size,
-        common_queue_min = 24)
+    data_provider = slim.dataset_data_provider.DatasetDataProvider(dataset,
+                    num_readers=num_readers,
+                    common_queue_capacity=20 * batch_size,
+                    common_queue_min=10 * batch_size)
 
     #Obtain the raw image using the get method
     raw_image, label = data_provider.get(['image', 'label'])
     preprocessing_fn = preprocessing_factory.get_preprocessing(preprocessing_name, is_training=is_training)
     #Perform the correct preprocessing for this image depending if it is training or evaluating
     image = preprocessing_fn(raw_image, img_size, img_size)
-    #As for the raw images, we just do a simple reshape to batch it up
-    raw_image = tf.expand_dims(raw_image, 0)
-    raw_image = tf.image.resize_nearest_neighbor(raw_image, [img_size, img_size])
-    raw_image = tf.squeeze(raw_image)
-
-    #Batch up the image by enqueing the tensors internally in a FIFO queue and dequeueing many elements with tf.train.batch.
-    images, raw_images, labels = tf.train.batch(
-        [image, raw_image, label],
-        batch_size = batch_size,
-        num_threads = 4,
-        capacity = 4 * batch_size,
-        allow_smaller_final_batch = True)
-
-    return images, raw_images, labels
+    return image, label
 
 def load_labels_into_dict(filename):
     #State the labels file and read it
