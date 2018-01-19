@@ -1,3 +1,4 @@
+import os
 import random
 import tensorflow as tf
 import sys
@@ -13,8 +14,8 @@ flags.DEFINE_string('dataset_dir', None, 'String: Your dataset directory')
 flags.DEFINE_float('validation_size', 0.3, 'Float: The proportion of examples in the dataset to be used for validation')
 
 # The number of shards to split the dataset into
-flags.DEFINE_integer('num_shards', 2, 'Int: Number of shards to split the TFRecord files')
-
+flags.DEFINE_integer('num_train_shards', 2, 'Int: Number of shards to split the TFRecord files')
+flags.DEFINE_integer('num_validation_shards', 2, 'Number of validation shards')
 # Seed for repeatability.
 flags.DEFINE_integer('random_seed', 0, 'Int: Random seed to use for repeatability.')
 
@@ -35,7 +36,7 @@ def main():
         raise ValueError('dataset_dir is empty. Please state a dataset_dir argument.')
 
     #If the TFRecord files already exist in the directory, then exit without creating the files again
-    if _dataset_exists(dataset_dir = FLAGS.dataset_dir, _NUM_SHARDS = FLAGS.num_shards, output_filename = FLAGS.tfrecord_filename):
+    if _dataset_exists(dataset_dir = FLAGS.dataset_dir, _NUM_SHARDS = FLAGS.num_train_shards, output_filename = FLAGS.tfrecord_filename):
         print('Dataset files already exist. Exiting without re-creating them.')
         return None
     #==============================================================END OF CHECKS===================================================================
@@ -46,7 +47,6 @@ def main():
     print('{}; {}'.format(len(photo_filenames), len(class_names)))
     #Refer each of the class name to a specific integer number for predictions later
     class_names_to_ids = dict(zip(class_names, range(len(class_names))))
-
     #Find the number of validation examples we need
     num_validation = int(FLAGS.validation_size * len(photo_filenames))
 
@@ -57,8 +57,8 @@ def main():
     validation_filenames = photo_filenames[:num_validation]
 
     # First, convert the training and validation sets.
-    _convert_dataset('train', training_filenames, class_names_to_ids, dataset_dir = FLAGS.dataset_dir, tfrecord_filename = FLAGS.tfrecord_filename, _NUM_SHARDS = FLAGS.num_shards)
-    _convert_dataset('validation', validation_filenames, class_names_to_ids, dataset_dir = FLAGS.dataset_dir, tfrecord_filename = FLAGS.tfrecord_filename, _NUM_SHARDS = FLAGS.num_shards)
+    _convert_dataset('train', training_filenames, class_names_to_ids, dataset_dir = FLAGS.dataset_dir, tfrecord_filename = FLAGS.tfrecord_filename, _NUM_SHARDS = FLAGS.num_train_shards)
+    _convert_dataset('validation', validation_filenames, class_names_to_ids, dataset_dir = FLAGS.dataset_dir, tfrecord_filename = FLAGS.tfrecord_filename, _NUM_SHARDS = FLAGS.num_validation_shards)
 
     # Finally, write the labels file:
     labels_to_class_names = dict(zip(range(len(class_names)), class_names))

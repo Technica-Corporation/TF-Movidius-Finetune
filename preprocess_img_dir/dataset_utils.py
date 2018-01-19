@@ -2,7 +2,7 @@ import math
 import os
 import sys
 import tensorflow as tf
-
+import matplotlib.pyplot as plt
 slim = tf.contrib.slim
 
 #State the labels filename
@@ -104,7 +104,7 @@ class ImageReader(object):
   def __init__(self):
     # Initializes function that decodes RGB JPEG data.
     self._decode_jpeg_data = tf.placeholder(dtype=tf.string)
-    self._decode_jpeg = tf.image.decode_jpeg(self._decode_jpeg_data, channels=3)
+    self._decode_jpeg = tf.image.decode_image(self._decode_jpeg_data, channels=3)
 
   def read_image_dims(self, sess, image_data):
     image = self.decode_jpeg(sess, image_data)
@@ -134,6 +134,7 @@ def _get_filenames_and_classes(dataset_dir):
   for class_sub_dir in dataset_main_folder_list:
     for filename in os.listdir(class_sub_dir):
       photo_filenames.append(os.path.join(class_sub_dir, filename))
+  print(sorted(class_names))
   return photo_filenames, sorted(class_names)
 
 
@@ -165,19 +166,20 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir, tfr
           start_ndx = shard_id * num_per_shard
           end_ndx = min((shard_id+1) * num_per_shard, len(filenames))
           for i in range(start_ndx, end_ndx):
-            sys.stdout.write('\r>> Converting image {}/{} shard {}'.format(i+1, len(filenames), shard_id))
+            sys.stdout.write('\r>> Converting image {}/{} shard {}, fn {}'.format(i+1, len(filenames), shard_id, filenames[i]))
             sys.stdout.flush()
             # Read byte string
             image_data = tf.gfile.FastGFile(filenames[i], 'rb').read()
             try:
-              height, width = image_reader.read_image_dims(sess, image_data)
-              class_name = os.path.basename(os.path.dirname(filenames[i]))
-              class_id = class_names_to_ids[class_name]
-              example = image_to_tfexample(image_data, 'jpg'.encode(), height, width, class_id)
-              tfrecord_writer.write(example.SerializeToString())
-            except Exception as inst:
-              print('Error with {}, {}'.format(filenames[i]))
+              image_reader.decode_jpeg(sess, image_data)
+            except:
+              print('bad data {}'.format(filenames[i]))
               continue
+            height, width = image_reader.read_image_dims(sess, image_data)
+            class_name = os.path.basename(os.path.dirname(filenames[i]))
+            class_id = class_names_to_ids[class_name]
+            example = image_to_tfexample(image_data, 'jpg'.encode(), height, width, class_id)
+            tfrecord_writer.write(example.SerializeToString())
   sys.stdout.write('\n')
   sys.stdout.flush()
 
