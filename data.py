@@ -100,7 +100,7 @@ def load_batch(dataset, preprocessing_name, batch_size, img_size, num_readers, i
     preprocessing_fn = preprocessing_factory.get_preprocessing(preprocessing_name, is_training=is_training)
     #Perform the correct preprocessing for this image depending if it is training or evaluating
     image = preprocessing_fn(raw_image, img_size, img_size)
-    return image, label
+    return image, raw_image, label
 
 def load_labels_into_dict(filename):
     #State the labels file and read it
