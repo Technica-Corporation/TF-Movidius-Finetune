@@ -19,7 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-from data import get_split, load_batch, load_labels_into_dict
+from data import get_split, load_labels_into_dict
 from deployment import model_deploy
 from nets import nets_factory
 from preprocessing import preprocessing_factory
@@ -32,7 +32,6 @@ tf.app.flags.DEFINE_integer('num_classes', None, 'number of classes to predict')
 tf.app.flags.DEFINE_string('labels_file', None, 'path to labels file')
 tf.app.flags.DEFINE_string('file_pattern', 'falldata_%s_*.tfrecord', 'file pattern of TFRecord files')
 tf.app.flags.DEFINE_string('file_pattern_for_counting', 'falldata', 'identify tfrecord files')
-tf.app.flags.DEFINE_string('preprocessing', 'inception', 'define preprocessing function to use defiend in preprocessing_factory')
 tf.app.flags.DEFINE_string(
         'master', '', 'The address of the TensorFlow master to use.')
 
@@ -416,32 +415,27 @@ def main(_):
         ######################
         network_fn = nets_factory.get_network_fn(
                 FLAGS.model_name,
-                num_classes=(dataset.num_classes - FLAGS.labels_offset),
+                num_classes=FLAGS.num_classes,
                 weight_decay=FLAGS.weight_decay,
                 is_training=True)
 
-        #####################################
-        # Select the preprocessing function #
-        #####################################
-        preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
-        image_preprocessing_fn = preprocessing_factory.get_preprocessing(
-                preprocessing_name,
-                is_training=True)
 
         ##############################################################
         # Create a dataset provider that loads data from the dataset #
         ##############################################################
         with tf.device(deploy_config.inputs_device()):
             train_image_size = FLAGS.train_image_size or network_fn.default_image_size
-            image, _, label = load_batch(dataset, FLAGS.preprocessing, FLAGS.batch_size, train_image_size, FLAGS.num_readers)
-            images, labels = tf.train.batch([image, label],
-                                        batch_size=FLAGS.batch_size,
-                                        num_threads=FLAGS.num_preprocessing_threads,
-                                        capacity=5 * FLAGS.batch_size)
-            labels = slim.one_hot_encoding(
-                    labels, dataset.num_classes - FLAGS.labels_offset)
-            batch_queue = slim.prefetch_queue.prefetch_queue(
-                    [images, labels], capacity=2 * deploy_config.num_clones)
+            provider = slim.dataset_data_provider.DatasetDataProvider(dataset,shuffle=True,common_queue_capacity=2 * FLAGS.batch_size,common_queue_min=FLAGS.batch_size)
+            [image, label] = provider.get(['image', 'label'])
+            #####################################
+            # Select the preprocessing function #
+            #####################################
+            preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
+            image_preprocessing_fn = preprocessing_factory.get_preprocessing(preprocessing_name, is_training=True)
+            image = image_preprocessing_fn(image, train_image_size, train_image_size)
+            images, labels = tf.train.batch([image, label],batch_size=FLAGS.batch_size, num_threads=FLAGS.num_preprocessing_threads, capacity=5 * FLAGS.batch_size)
+            labels = slim.one_hot_encoding(labels, dataset.num_classes - FLAGS.labels_offset)
+            batch_queue = slim.prefetch_queue.prefetch_queue([images, labels], capacity=2 * deploy_config.num_clones)
 
         ####################
         # Define the model #
@@ -450,7 +444,17 @@ def main(_):
             """Allows data parallelism by creating multiple clones of network_fn."""
             images, labels = batch_queue.dequeue()
             logits, end_points = network_fn(images)
-
+            #final_tensor = slim.fully_connected(logits, 200, scope='final_result')
+            '''
+            with tf.name_scope('final_logits'):
+                with tf.name_scope('weights'):
+                    initial_value = tf.truncated_normal([1001, 200], stddev=0.001)
+                    layer_weights = tf.Variable(initial_value, name='final_weights')
+                with tf.name_scope('biases'):
+                    layer_biases = tf.Variable(tf.zeros([200]), name='final_biases')
+                with tf.name_scope('mul'):
+                    final_tensor = tf.matmul(logits, layer_weights) + layer_biases
+            '''
             #############################
             # Specify the loss function #
             #############################
@@ -459,6 +463,7 @@ def main(_):
                         end_points['AuxLogits'], labels,
                         label_smoothing=FLAGS.label_smoothing, weights=0.4,
                         scope='aux_loss')
+            #tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=final_tensor)
             tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
             #slim.losses.softmax_cross_entropy(logits, labels, label_smoothing=FLAGS.label_smoothing, weights=1.0)
             return end_points

@@ -425,5 +425,6 @@ def main(_):
             logging.info('Finished training! Saving model to disk now {}'.format(sv.save_path))
             sv.saver.save(sess, sv.save_path, global_step = sv.global_step)
 
+
 if __name__ == '__main__':
   tf.app.run()

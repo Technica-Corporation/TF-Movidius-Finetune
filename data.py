@@ -73,35 +73,6 @@ def get_split(split_name, dataset_dir, num_classes, labels_file, file_pattern, f
 
     return dataset
 
-def load_batch(dataset, preprocessing_name, batch_size, img_size, num_readers, is_training=True):
-    '''
-    Loads a batch for training.
-
-    INPUTS:
-    - dataset(Dataset): a Dataset class object that is created from the get_split function
-    - batch_size(int): determines how big of a batch to train
-    - height(int): the height of the image to resize to during preprocessing
-    - width(int): the width of the image to resize to during preprocessing
-    - is_training(bool): to determine whether to perform a training or evaluation preprocessing
-
-    OUTPUTS:
-    - images(Tensor): a Tensor of the shape (batch_size, height, width, channels) that contain one batch of images
-    - labels(Tensor): the batch's labels with the shape (batch_size,) (requires one_hot_encoding).
-
-    '''
-    #First create the data_provider object
-    data_provider = slim.dataset_data_provider.DatasetDataProvider(dataset,
-                    num_readers=num_readers,
-                    common_queue_capacity=20 * batch_size,
-                    common_queue_min=10 * batch_size)
-
-    #Obtain the raw image using the get method
-    raw_image, label = data_provider.get(['image', 'label'])
-    preprocessing_fn = preprocessing_factory.get_preprocessing(preprocessing_name, is_training=is_training)
-    #Perform the correct preprocessing for this image depending if it is training or evaluating
-    image = preprocessing_fn(raw_image, img_size, img_size)
-    return image, raw_image, label
-
 def load_labels_into_dict(filename):
     #State the labels file and read it
     labels = open(filename, 'r')
