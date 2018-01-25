@@ -16,7 +16,6 @@
 
 import tensorflow as tf
 from tensorflow.python.platform import tf_logging as logging
-from tensorflow.contrib.framework.python.ops.variables import get_or_create_global_step
 from preprocessing import preprocessing_factory
 from nets import nets_factory
 import time
@@ -31,15 +30,14 @@ tf.app.flags.DEFINE_string('checkpoint_path', None, 'direcotry where to find mod
 tf.app.flags.DEFINE_string('eval_dir', './evallog', 'direcotry where to create log files')
 tf.app.flags.DEFINE_string('dataset_dir', '/home/local/TECHNICALABS/alu/data/falldetect/data/processed/tfrecord/', 'directory to where Validation TFRecord files are')
 tf.app.flags.DEFINE_integer('num_classes', 2, 'number of classes')
-tf.app.flags.DEFINE_string('file_pattern', 'falltest_%s_*.tfrecord', 'file pattern of TFRecord files')
-tf.app.flags.DEFINE_string('file_pattern_for_counting', 'falltest', 'identify tfrecord files')
+tf.app.flags.DEFINE_string('file_pattern', 'topc_%s_*.tfrecord', 'file pattern of TFRecord files')
+tf.app.flags.DEFINE_string('file_pattern_for_counting', 'topc', 'identify tfrecord files')
 tf.app.flags.DEFINE_string('labels_file', None, 'path to labels file')
 tf.app.flags.DEFINE_integer('image_size', None, 'image size ISxIS')
 tf.app.flags.DEFINE_integer('batch_size', 1, 'batch size')
 tf.app.flags.DEFINE_string('model_name', 'mobilenet_v1', 'name of model architecture defined in nets factory')
 tf.app.flags.DEFINE_string('preprocessing_name', 'lenet', 'name of model preprocessing defined in preprocessing factory')
 tf.app.flags.DEFINE_integer('num_epochs', 1, 'number of epochs to evaluate for')
-tf.app.flags.DEFINE_float( 'moving_average_decay', None, 'The decay to use for the moving average.' 'If left as None, then moving averages are not used.')
 tf.app.flags.DEFINE_integer('num_preprocessing_threads', 4, 'The number of threads used to create the batches.')
 tf.app.flags.DEFINE_string('master', '', 'The address of the TensorFlow master to use.')
 tf.app.flags.DEFINE_integer('max_num_batches', None, 'Max number of batches to evaluate by default use all.')
@@ -54,7 +52,7 @@ def main(_):
   tf.logging.set_verbosity(tf.logging.INFO)
 
   with tf.Graph().as_default():
-    tf_global_step = slim.get_or_create_global_step()
+    tf_global_step = tf.train.get_or_create_global_step()
 
     ######################
     # Select the dataset #
@@ -82,22 +80,12 @@ def main(_):
     ####################
     logits, _ = network_fn(images)
     final_tensor = tf.nn.softmax(logits)
-    '''
-    with tf.name_scope('final_logits'):
-      with tf.name_scope('weights'):
-        initial_value = tf.truncated_normal([1001, 200], stddev=0.001)
-        layer_weights = tf.Variable(initial_value, name='final_weights')
-      with tf.name_scope('biases'):
-        layer_biases = tf.Variable(tf.zeros([200]), name='final_biases')
-      with tf.name_scope('mul'):
-          final_tensor = tf.matmul(logits, layer_weights) + layer_biases
-    '''
     variables_to_restore = slim.get_variables_to_restore()
     predictions = tf.argmax(final_tensor, 1)
     labels = tf.reshape(tf.squeeze(labels), (FLAGS.batch_size, ))
     # Define the metrics:
     names_to_values, names_to_updates = slim.metrics.aggregate_metric_map({'Accuracy': slim.metrics.streaming_accuracy(predictions, labels),
-                                                                            'Recall_5': slim.metrics.streaming_recall_at_k(final_tensor, labels, 5),
+                                                                            'Recall_5': slim.metrics.streaming_sparse_recall_at_k(final_tensor, labels, 5),
     })
 
     # Print the summaries to screen.
