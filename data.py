@@ -2,11 +2,12 @@ import tensorflow as tf
 import os
 from tensorflow.python.platform import tf_logging as logging
 from preprocessing import preprocessing_factory
+import dataset_utils
 items_to_descriptions = {'image': 'A 3-channel RGB coloured image', 'label': 'Img label'}
 slim = tf.contrib.slim
 
 #We now create a function that creates a Dataset class which will give us many TFRecord files to feed in the examples into a queue in parallel.
-def get_split(split_name, dataset_dir, num_classes, labels_file, file_pattern, file_pattern_for_counting):
+def get_split(split_name, dataset_dir, num_classes, file_pattern, file_pattern_for_counting):
     '''
     Obtains the split - training or validation - to create a Dataset class for feeding the examples into a queue later on. This function will
     set up the decoder and dataset information all into one Dataset class so that you can avoid the brute work later on.
@@ -58,8 +59,10 @@ def get_split(split_name, dataset_dir, num_classes, labels_file, file_pattern, f
     decoder = slim.tfexample_decoder.TFExampleDecoder(keys_to_features, items_to_handlers)
 
     #Create the labels_to_name file
-    labels_to_name_dict = load_labels_into_dict(labels_file)
-
+    #labels_to_name_dict = load_labels_into_dict(labels_file)
+    labels_to_names = None
+    if dataset_utils.has_labels(dataset_dir):
+        labels_to_names = dataset_utils.read_label_file(dataset_dir)
     #Actually create the dataset
     dataset = slim.dataset.Dataset(
         data_sources = file_pattern_path,
@@ -68,7 +71,7 @@ def get_split(split_name, dataset_dir, num_classes, labels_file, file_pattern, f
         num_readers = 4,
         num_samples = num_samples,
         num_classes = num_classes,
-        labels_to_name = labels_to_name_dict,
+        labels_to_name = labels_to_names,
         items_to_descriptions = items_to_descriptions)
 
     return dataset
