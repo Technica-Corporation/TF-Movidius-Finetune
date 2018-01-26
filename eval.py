@@ -32,7 +32,7 @@ tf.app.flags.DEFINE_string('dataset_dir', '/home/local/TECHNICALABS/alu/data/fal
 tf.app.flags.DEFINE_integer('num_classes', 2, 'number of classes')
 tf.app.flags.DEFINE_string('file_pattern', 'topc_%s_*.tfrecord', 'file pattern of TFRecord files')
 tf.app.flags.DEFINE_string('file_pattern_for_counting', 'topc', 'identify tfrecord files')
-tf.app.flags.DEFINE_string('labels_file', None, 'path to labels file')
+#tf.app.flags.DEFINE_string('labels_file', None, 'path to labels file')
 tf.app.flags.DEFINE_integer('image_size', None, 'image size ISxIS')
 tf.app.flags.DEFINE_integer('batch_size', 1, 'batch size')
 tf.app.flags.DEFINE_string('model_name', 'mobilenet_v1', 'name of model architecture defined in nets factory')
@@ -57,7 +57,7 @@ def main(_):
     ######################
     # Select the dataset #
     ######################
-    dataset = get_split(FLAGS.split_name, FLAGS.dataset_dir, FLAGS.num_classes, FLAGS.labels_file, FLAGS.file_pattern, FLAGS.file_pattern_for_counting)
+    dataset = get_split(FLAGS.split_name, FLAGS.dataset_dir, FLAGS.num_classes, FLAGS.file_pattern, FLAGS.file_pattern_for_counting)
     provider = slim.dataset_data_provider.DatasetDataProvider(dataset,shuffle=False,common_queue_capacity=2 * FLAGS.batch_size,common_queue_min=FLAGS.batch_size)
     [image, label] = provider.get(['image', 'label'])
 
@@ -82,7 +82,7 @@ def main(_):
     final_tensor = tf.nn.softmax(logits)
     variables_to_restore = slim.get_variables_to_restore()
     predictions = tf.argmax(final_tensor, 1)
-    labels = tf.squeeze(labels)
+    #labels = tf.squeeze(labels)
     print(predictions.dtype, predictions.get_shape())
     print(labels.dtype, labels.get_shape())
 	#labels = tf.reshape(tf.squeeze(labels), (FLAGS.batch_size, ))
