@@ -435,8 +435,8 @@ def main(_):
             preprocessing_name = FLAGS.preprocessing_name or FLAGS.model_name
             image_preprocessing_fn = preprocessing_factory.get_preprocessing(preprocessing_name, is_training=True)
             image = image_preprocessing_fn(image, train_image_size, train_image_size)
-            images, labels = tf.train.batch([image, label],batch_size=FLAGS.batch_size, num_threads=FLAGS.num_preprocessing_threads, capacity=5 * FLAGS.batch_size)
-            labels = slim.one_hot_encoding(labels, dataset.num_classes - FLAGS.labels_offset)
+            images, labels = tf.train.batch([image, label],batch_size=FLAGS.batch_size, num_threads=FLAGS.num_preprocessing_threads, capacity= 3 * FLAGS.batch_size)
+            #labels = slim.one_hot_encoding(labels, dataset.num_classes - FLAGS.labels_offset)
             batch_queue = slim.prefetch_queue.prefetch_queue([images, labels], capacity=2 * deploy_config.num_clones)
             print(images.dtype, images.get_shape())
             print(labels.dtype, labels.get_shape())
@@ -447,28 +447,20 @@ def main(_):
             """Allows data parallelism by creating multiple clones of network_fn."""
             images, labels = batch_queue.dequeue()
             logits, end_points = network_fn(images)
-            #final_tensor = slim.fully_connected(logits, 200, scope='final_result')
-            '''
-            with tf.name_scope('final_logits'):
-                with tf.name_scope('weights'):
-                    initial_value = tf.truncated_normal([1001, 200], stddev=0.001)
-                    layer_weights = tf.Variable(initial_value, name='final_weights')
-                with tf.name_scope('biases'):
-                    layer_biases = tf.Variable(tf.zeros([200]), name='final_biases')
-                with tf.name_scope('mul'):
-                    final_tensor = tf.matmul(logits, layer_weights) + layer_biases
-            '''
             #############################
             # Specify the loss function #
             #############################
-            if 'AuxLogits' in end_points:
+            '''if 'AuxLogits' in end_points:
                 slim.losses.softmax_cross_entropy(
                         end_points['AuxLogits'], labels,
                         label_smoothing=FLAGS.label_smoothing, weights=0.4,
                         scope='aux_loss')
+            '''
+            loss = tf.losses.sparse_softmax_cross_entropy(labels=labels,logits=logits)
+            #tf.add_to_collection(tf.GraphKeys.LOSSES, loss)
             #tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=final_tensor)
             #tf.losses.softmax_cross_entropy(onehot_labels=labels, logits=logits)
-            slim.losses.softmax_cross_entropy(logits, labels, label_smoothing=FLAGS.label_smoothing, weights=1.0)
+            #slim.losses.softmax_cross_entropy(logits, labels, label_smoothing=FLAGS.label_smoothing, weights=1.0)
             return end_points
 
         # Gather initial summaries.

@@ -60,7 +60,7 @@ def main(_):
         ######################
         # Select the dataset #
         ######################
-        dataset = get_split(FLAGS.split_name, FLAGS.dataset_dir, FLAGS.num_classes, FLAGS.labels_file, FLAGS.file_pattern, FLAGS.file_pattern_for_counting)
+        dataset = get_split(FLAGS.split_name, FLAGS.dataset_dir, FLAGS.num_classes, FLAGS.file_pattern, FLAGS.file_pattern_for_counting)
         provider = slim.dataset_data_provider.DatasetDataProvider(dataset,shuffle=False,common_queue_capacity=2 * FLAGS.batch_size,common_queue_min=FLAGS.batch_size)
         [image, label] = provider.get(['image', 'label'])
 

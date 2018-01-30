@@ -83,12 +83,12 @@ def main(_):
     variables_to_restore = slim.get_variables_to_restore()
     predictions = tf.argmax(final_tensor, 1)
     #labels = tf.squeeze(labels)
+    labels = tf.reshape(tf.squeeze(labels), (FLAGS.batch_size, ))
     print(predictions.dtype, predictions.get_shape())
     print(labels.dtype, labels.get_shape())
-	#labels = tf.reshape(tf.squeeze(labels), (FLAGS.batch_size, ))
     # Define the metrics:
     names_to_values, names_to_updates = slim.metrics.aggregate_metric_map({'Accuracy': slim.metrics.streaming_accuracy(predictions, labels),
-                                                                            'Recall_5': slim.metrics.streaming_sparse_recall_at_k(final_tensor, labels, 5),
+                                                                            'Recall_5': slim.metrics.streaming_sparse_recall_at_k(logits, labels, 5),
     })
 
     # Print the summaries to screen.
