@@ -212,5 +212,4 @@ def preprocess_image(image, output_height, output_width, is_training=False,
         add_image_summaries=add_image_summaries)
   else:
     return preprocess_for_eval(
-        image, output_height, output_width,
-        add_image_summaries=add_image_summaries)
+        image, output_height, output_width)
