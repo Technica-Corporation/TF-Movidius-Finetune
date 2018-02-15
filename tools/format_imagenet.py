@@ -5,6 +5,8 @@ import os
 import progressbar
 from shutil import copyfile
 
+
+"""A simple script that loads a labels file, loads a imagenet formatted ground truth dictionary then organizes images in subfolders according to their label"""
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--labels_file', type=str, required=True, help='Path to labels files')
 parser.add_argument('--training_labels', type=str, required=True, help='Path to labels files')
