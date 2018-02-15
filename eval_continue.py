@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Generic evaluation script that evaluates a model using a TFRECORD path"""
+"""Generic evaluation script that evaluates a model using a TFRECORD path, continuously listening to a checkpoint directory and waits for a new checkpoint to recalculate metrics"""
 
 import tensorflow as tf
 from tensorflow.python.platform import tf_logging as logging

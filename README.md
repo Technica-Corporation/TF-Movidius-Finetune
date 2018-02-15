@@ -19,10 +19,10 @@ When we have successfully converted Tensorflow to the Movidius, we’ve observed
 
 ## To Do:
 - [ ] Define a new custom CNN model using TF-Slim API and converting to Movidius model
-- [ ] Investigate drop-off in accuracy when running the converted model on the Movidius Neural Compute Stick (MobileNet Arch.)
-- [ ] Look into the Movidius' TensorflowParser.py and look into compatibility with models defined in native Tensorflow
-- [ ] Investigate is_training parameter (related to batch normalization) - odd behavior displayed when running eval scripts with different batch size, even though normalization should be the same with is_training=False
-- [ ] Try different model architecture outside of MobileNet
+- [X] Investigate drop-off in accuracy when running the converted model on the Movidius Neural Compute Stick (MobileNet Arch.)
+- [X] Look into the Movidius' TensorflowParser.py and look into compatibility with models defined in native Tensorflow
+- [X] Investigate is_training parameter (related to batch normalization) - odd behavior displayed when running eval scripts with different batch size, even though normalization should be the same with is_training=False
+- [X] Try different model architecture outside of MobileNet
 
 ## Example Workflow
 

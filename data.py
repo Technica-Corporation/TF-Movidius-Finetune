@@ -59,7 +59,6 @@ def get_split(split_name, dataset_dir, num_classes, file_pattern, file_pattern_f
 	decoder = slim.tfexample_decoder.TFExampleDecoder(keys_to_features, items_to_handlers)
 
 	#Create the labels_to_name file
-	#labels_to_name_dict = load_labels_into_dict(labels_file)
 	labels_to_names = None
 	if dataset_utils.has_labels(dataset_dir):
 		labels_to_names = dataset_utils.read_label_file(dataset_dir)
@@ -75,14 +74,3 @@ def get_split(split_name, dataset_dir, num_classes, file_pattern, file_pattern_f
 		items_to_descriptions = items_to_descriptions)
 
 	return dataset
-
-def load_labels_into_dict(filename):
-	#State the labels file and read it
-	labels = open(filename, 'r')
-	#Create a dictionary to refer each label to their string name
-	labels_to_name = {}
-	for line in labels:
-		label, string_name = line.split(':')
-		string_name = string_name[:-1] #Remove newline
-		labels_to_name[int(label)] = string_name
-	return labels_to_name

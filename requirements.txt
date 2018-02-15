@@ -3,7 +3,9 @@ enum34==1.1.6
 html5lib==0.9999999
 Markdown==2.6.10
 numpy==1.13.3
+progressbar2==3.34.3
 protobuf==3.5.0.post1
+python-utils==2.2.0
 six==1.11.0
 tensorflow-gpu==1.4.1
 tensorflow-tensorboard==0.4.0rc3
