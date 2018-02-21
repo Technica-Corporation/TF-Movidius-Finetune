@@ -8,13 +8,13 @@ Following the creation of project, a brief [Tensorflow Compliance Guide](https:/
 
 The following are the biggest issues we've encountered we converting from Tensorflow to Movidius Graph:
 
-### Placeholder Input
+## 1. Placeholder Input
 Most models in Tensorflow are trained using NWHC formatted images; however networks are often defined by using input placeholders where N is None (e.g. [None, 224, 224,3]). The NCSDK Toolkit currently doesn't support a shape include a None dimension.
 
-### Slim is_training definition
+## 2. is_training
 The is_training parameter when using the TF Slim API causes different behavior when training versus inferencing. Setting is_training to False removes Dropout nodes and sets batch normalization to use the static average as opposed to dynamically calculating over each new batch. 
 
-#### Solution
+## Solution
 Using the checkpoints saved intermediately during training, one can create a inference version of the graph and use the Saver API to restore the weights. The inference version of the graph includes a fixed batch size for the Input Placeholder (e.g. [1,224,224,3]). The [export_inference_graph.py](export_inference_graph.py) provided by the Slim API, with some small modificiations fufills this functionality. Using this script also allows the user to define a meta graph with the is_training parameter set to false such that the other main issue is resolved. 
 
 We believe that this should work in vanilla Tensorflow, but have found the slim API optimal for transfer/fine-tuning models. 
