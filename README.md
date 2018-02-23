@@ -65,14 +65,17 @@ python train_multi_gpu.py --dataset_dir=data/processed/tfrecord/ --file_pattern 
 python eval.py --checkpoint_path ../tf-train-slim/trainlogs/1.2/run_4/ --num_classes 2 --dataset_dir ~/data/ --file_pattern data_%s_*.tfrecord --file_pattern_for_counting data --batch_size 100
 ```
 ```
-python export_inference_graph.py --model_name inception_v3 --image_size 224 --batch_size 1 --ckpt_path ./trainlogs//model.ckpt-1560 --output_ckpt_path ./output/tf-mvnc
+python export_inference_graph.py --model_name inception_v3 --image_size 224 --batch_size 1 --ckpt_path ./trainlogs//model.ckpt-1560 --output_ckpt_path ./output/network-0 --input_layer_name input --output_layer_name output
 ```
+
+This will produce the files: checkpoint, network-0.ckpt, network-0.data-00000-of-00001, network-0.meta.
+
+In order to compile the mvNCGraph
+
 ```
-python export_inference_graph.py --model_name inception_v3 --is_training True --batch_size 1 --num_classes 2 --output_file ./trainlogs/inference_graph.def --image_size 299
+mvNCCompile network-0.meta -w network-0 -in input -on output -s 12
 ```
-```
-python freeze_graph.py --input_node_names input --output_node_names final_result --input_binary True --input_graph inference_graph.def --input_checkpoint test.ckpt --output_graph frozen-inf.pb
-```
+
 
 
 ### Solutions Tried w/o Success
